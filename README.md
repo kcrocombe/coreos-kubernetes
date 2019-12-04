@@ -1,3 +1,16 @@
+
+This repository was forked from:
+
+		https://github.com/coreos/coreos-kubernetes.git
+
+
+The source configuration does not work especially well. So these are my efforts to improve upon it!
+
+The documentation below is what was originally forked
+
+
+
+
 # Kubernetes on CoreOS Container Linux
 
 <div class="k8s-on-tectonic">

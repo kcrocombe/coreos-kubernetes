@@ -8,7 +8,12 @@ require 'yaml'
 
 Vagrant.require_version ">= 1.6.0"
 
-$update_channel = "alpha"
+# NB : Only the Beta Channel seems to work out of the box - probably because this image has the 'core' user already configured. The
+# other 2 will need to have the core user injected in by an Ignition script as per below.
+#
+$update_channel = "stable"
+#$update_channel = "alpha"
+#$update_channel = "beta"
 
 CLUSTER_IP="10.3.0.1"
 NODE_IP = "172.17.4.99"
@@ -16,6 +21,8 @@ NODE_VCPUS = 1
 NODE_MEMORY_SIZE = 2048
 USER_DATA_PATH = File.expand_path("user-data")
 SSL_TARBALL_PATH = File.expand_path("ssl/controller.tar")
+
+IGNITION_CONFIG_PATH = File.join(File.dirname(__FILE__), "config.ign")
 
 system("mkdir -p ssl && ./../lib/init-ssl-ca ssl") or abort ("failed generating SSL CA artifacts")
 system("./../lib/init-ssl ssl apiserver controller IP.1=#{NODE_IP},IP.2=#{CLUSTER_IP}") or abort ("failed generating SSL certificate artifacts")
@@ -29,16 +36,6 @@ Vagrant.configure("2") do |config|
   config.vm.box_version = ">= 1151.0.0"
   config.vm.box_url = "http://%s.release.core-os.net/amd64-usr/current/coreos_production_vagrant.json" % $update_channel
 
-  ["vmware_fusion", "vmware_workstation"].each do |vmware|
-    config.vm.provider vmware do |v, override|
-      v.vmx['numvcpus'] = NODE_VCPUS
-      v.vmx['memsize'] = NODE_MEMORY_SIZE
-      v.gui = false
-
-      override.vm.box_url = "http://%s.release.core-os.net/amd64-usr/current/coreos_production_vagrant_vmware_fusion.json" % $update_channel
-    end
-  end
-
   config.vm.provider :virtualbox do |v|
     v.cpus = NODE_VCPUS
     v.gui = false
@@ -48,6 +45,23 @@ Vagrant.configure("2") do |config|
     # in CoreOS, so tell Vagrant that so it can be smarter.
     v.check_guest_additions = false
     v.functional_vboxsf     = false
+
+	 # KJC - following was added to the gitHub cloned version in order that the 'core' user be injected by ignition
+	 # at node creattion time.
+	 #
+	 # enable ignition (this is always done on virtualbox as this is how the ssh key is added to the system)
+    config.ignition.enabled = true
+	 config.ignition.config_obj = v
+	 config.ignition.ip = NODE_IP
+	 config.ignition.hostname = config.vm.hostname
+	 config.ignition.drive_root = "IgnitionVirtualDisks"
+	 config.ignition.drive_name = "configDsk"
+    # when the ignition config doesn't exist, the plugin automatically generates a very basic Ignition with the ssh key
+    # and previously specified options (ip and hostname). Otherwise, it appends those to the provided config.ign below
+    if File.exist?(IGNITION_CONFIG_PATH)
+    	config.ignition.path = 'config.ign'
+	 end
+
   end
 
   # plugin conflict
@@ -61,6 +75,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision :shell, :inline => "mkdir -p /etc/kubernetes/ssl && tar -C /etc/kubernetes/ssl -xf /tmp/ssl.tar", :privileged => true
 
   config.vm.provision :file, :source => USER_DATA_PATH, :destination => "/tmp/vagrantfile-user-data"
-  config.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
+  #config.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
+  config.vm.provision :shell, :inline => "mkdir -p /var/lib/coreos-vagrant && mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
   
 end
