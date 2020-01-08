@@ -33,6 +33,8 @@ $etcd_vm_memory = 512
 
 #KJC
 IGNITION_CONFIG_PATH = File.join(File.dirname(__FILE__), "config.ign")
+IGNITION_WORKER_CONFIG_PATH = File.join(File.dirname(__FILE__), "worker.ign")
+IGNITION_CONTROLLER_CONFIG_PATH = File.join(File.dirname(__FILE__), "controller.ign")
 
 CONFIG = File.expand_path("config.rb")
 if File.exist?(CONFIG)
@@ -49,6 +51,8 @@ ETCD_CLOUD_CONFIG_PATH = File.expand_path("etcd-cloud-config.yaml")
 
 CONTROLLER_CLOUD_CONFIG_PATH = File.expand_path("../generic/controller-install.sh")
 WORKER_CLOUD_CONFIG_PATH = File.expand_path("../generic/worker-install.sh")
+WORKER_ENV_OPTIONS = File.expand_path("workerCtFiles/options.env")
+CONTROLLER_ENV_OPTIONS = File.expand_path("controllerCtFiles/options.env")
 
 def etcdIP(num)
   return "172.17.4.#{num+50}"
@@ -77,8 +81,8 @@ def provisionMachineSSL(machine,certBaseName,cn,ipAddrs)
   tarFile = "ssl/#{cn}.tar"
   ipString = ipAddrs.map.with_index { |ip, i| "IP.#{i+1}=#{ip}"}.join(",")
   system("./../../lib/init-ssl ssl #{certBaseName} #{cn} #{ipString}") or abort("failed generating #{cn} SSL artifacts")
-  machine.vm.provision :file, :source => tarFile, :destination => "/tmp/ssl.tar"
-  machine.vm.provision :shell, :inline => "mkdir -p /etc/kubernetes/ssl && tar -C /etc/kubernetes/ssl -xf /tmp/ssl.tar", :privileged => true
+  #machine.vm.provision :file, :source => tarFile, :destination => "/tmp/ssl.tar"
+  #machine.vm.provision :shell, :inline => "mkdir -p /etc/kubernetes/ssl && tar -C /etc/kubernetes/ssl -xf /tmp/ssl.tar", :privileged => true
 end
 
 Vagrant.configure("2") do |config|
@@ -87,13 +91,14 @@ Vagrant.configure("2") do |config|
 
   config.vm.box = "coreos-%s" % $update_channel
   config.vm.box_version = ">= 1151.0.0"
-  config.vm.box_url = "http://%s.release.core-os.net/amd64-usr/current/coreos_production_vagrant.json" % $update_channel
+  #config.vm.box_url = "http://%s.release.core-os.net/amd64-usr/current/coreos_production_vagrant.json" % $update_channel
+  config.vm.box_url = "http://%s.release.core-os.net/amd64-usr/current/coreos_production_vagrant_virtualbox.json" % $update_channel
 
-  ["vmware_fusion", "vmware_workstation"].each do |vmware|
-    config.vm.provider vmware do |v, override|
-      override.vm.box_url = "http://%s.release.core-os.net/amd64-usr/current/coreos_production_vagrant_vmware_fusion.json" % $update_channel
-    end
-  end
+#  ["vmware_fusion", "vmware_workstation"].each do |vmware|
+#    config.vm.provider vmware do |v, override|
+#      override.vm.box_url = "http://%s.release.core-os.net/amd64-usr/current/coreos_production_vagrant_vmware_fusion.json" % $update_channel
+#    end
+#  end
 
   config.vm.provider :virtualbox do |v|
     # On VirtualBox, we don't have guest additions or a functional vboxsf
@@ -107,35 +112,46 @@ Vagrant.configure("2") do |config|
     config.vbguest.auto_update = false
   end
 
-  ["vmware_fusion", "vmware_workstation"].each do |vmware|
-    config.vm.provider vmware do |v|
-      v.vmx['numvcpus'] = 1
-      v.gui = false
-    end
-  end
+#  ["vmware_fusion", "vmware_workstation"].each do |vmware|
+#    config.vm.provider vmware do |v|
+#      v.vmx['numvcpus'] = 1
+#      v.gui = false
+#    end
+#  end
 
   config.vm.provider :virtualbox do |vb|
     vb.cpus = 1
     vb.gui = false
   end
 
+  # Configure the etcd servers
+  #
+  # For each etcd server...
   (1..$etcd_count).each do |i|
+  	
     config.vm.define vm_name = "e%d" % i do |etcd|
 
+		# Read the Yaml configuration file into a single structured data element
       data = YAML.load(IO.readlines(ETCD_CLOUD_CONFIG_PATH)[1..-1].join)
+
+		#replace the the value at node coreos-->etcd2-->initial-cluster with initial_etcd_cluster
       data['coreos']['etcd2']['initial-cluster'] = initial_etcd_cluster
+
+		#...and likewise with coreos-->etcd2-->initial-cluster
       data['coreos']['etcd2']['name'] = vm_name
+
+		#...and write the new file out
       etcd_config_file = Tempfile.new('etcd_config', :binmode => true)
       etcd_config_file.write("#cloud-config\n#{data.to_yaml}")
       etcd_config_file.close
 
       etcd.vm.hostname = vm_name
 
-      ["vmware_fusion", "vmware_workstation"].each do |vmware|
-        etcd.vm.provider vmware do |v|
-          v.vmx['memsize'] = $etcd_vm_memory
-        end
-      end
+      #["vmware_fusion", "vmware_workstation"].each do |vmware|
+      #  etcd.vm.provider vmware do |v|
+      #    v.vmx['memsize'] = $etcd_vm_memory
+      #  end
+      #end
 
       etcd.vm.provider :virtualbox do |vb|
         vb.memory = $etcd_vm_memory
@@ -147,7 +163,7 @@ Vagrant.configure("2") do |config|
       
       # KJC : /var/lib/coreos-vagrant/ didn't exist
 		#etcd.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
-      etcd.vm.provision :shell, :inline => "mkdir -p /var/lib/coreos-vagrant && mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
+#      etcd.vm.provision :shell, :inline => "mkdir -p /var/lib/coreos-vagrant && mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
 
 
 #KJC
@@ -158,12 +174,14 @@ Vagrant.configure("2") do |config|
   		  	config.ignition.hostname = etcd.vm.hostname
   		  	config.ignition.drive_root = "IgnitionVirtualDisks"
   		  	config.ignition.drive_name = "configDskEtcd"+i.to_s
+
   		  	# when the ignition config doesn't exist, the plugin automatically generates a very basic Ignition with the ssh key
   		  	# and previously specified options (ip and hostname). Otherwise, it appends those to the provided config.ign below
   		  	if File.exist?(IGNITION_CONFIG_PATH)
   		   	 config.ignition.path = 'config.ign'
   		  	end
 		end
+
     end
   end
 
@@ -171,24 +189,28 @@ Vagrant.configure("2") do |config|
   (1..$controller_count).each do |i|
     config.vm.define vm_name = "c%d" % i do |controller|
 
-      env_file = Tempfile.new('env_file', :binmode => true)
+      env_file = File.new(CONTROLLER_ENV_OPTIONS, "w+")
       env_file.write("ETCD_ENDPOINTS=#{etcd_endpoints}\n")
       env_file.close
 
       controller.vm.hostname = vm_name
 
-      ["vmware_fusion", "vmware_workstation"].each do |vmware|
-        controller.vm.provider vmware do |v|
-          v.vmx['memsize'] = $controller_vm_memory
-        end
-      end
+#      ["vmware_fusion", "vmware_workstation"].each do |vmware|
+#        controller.vm.provider vmware do |v|
+#          v.vmx['memsize'] = $controller_vm_memory
+#        end
+#      end
 
       controller.vm.provider :virtualbox do |vb|
         vb.memory = $controller_vm_memory
       end
 
       controllerIP = controllerIP(i)
-      controller.vm.network :private_network, ip: controllerIP
+      
+		controller.vm.network :private_network, ip: controllerIP
+
+#controller.vm.network "forwarded_port", guest: 443, host: 6443, auto_correct: true
+#controller.vm.network "forwarded_port", guest: 80, host: 8080, auto_correct: true
 
       # Each controller gets the same cert
       provisionMachineSSL(controller,"apiserver","kube-apiserver-#{controllerIP}",controllerIPs)
@@ -200,10 +222,11 @@ Vagrant.configure("2") do |config|
 
       # KJC : /var/lib/coreos-vagrant/ didn't exist
       #controller.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
-      controller.vm.provision :shell, :inline => "mkdir -p /var/lib/coreos-vagrant && mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
+      #controller.vm.provision :shell, :inline => "mkdir -p /var/lib/coreos-vagrant && mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
 
 
 #KJC
+system("ct -in-file=controller3.ct -out-file=IgnitionVirtualDisks/controller.ign -platform vagrant-virtualbox -pretty -strict --files-dir .") or abort ("Failed generating Controller Ignition files.")
       controller.vm.provider :virtualbox do |vb|
 	 		config.ignition.enabled = true
 			config.ignition.config_obj = :virtualbox
@@ -213,8 +236,8 @@ Vagrant.configure("2") do |config|
     		config.ignition.drive_name = "configDskController"+i.to_s
     		# when the ignition config doesn't exist, the plugin automatically generates a very basic Ignition with the ssh key
     		# and previously specified options (ip and hostname). Otherwise, it appends those to the provided config.ign below
-    		if File.exist?(IGNITION_CONFIG_PATH)
-     	 		config.ignition.path = 'config.ign'
+    		if File.exist?(IGNITION_CONTROLLER_CONFIG_PATH)
+     			config.ignition.path = 'controller.ign'
     		end
     	end
     end
@@ -225,16 +248,16 @@ Vagrant.configure("2") do |config|
     config.vm.define vm_name = "w%d" % i do |worker|
       worker.vm.hostname = vm_name
 
-      env_file = Tempfile.new('env_file', :binmode => true)
+      env_file = File.new(WORKER_ENV_OPTIONS, "w+")
       env_file.write("ETCD_ENDPOINTS=#{etcd_endpoints}\n")
-      env_file.write("CONTROLLER_ENDPOINT=https://#{controllerIPs[0]}\n") #TODO(aaron): LB or DNS across control nodes
+      env_file.write("CONTROLLER_ENDPOINT=https://#{controllerIPs[0]}:443\n") 
       env_file.close
 
-      ["vmware_fusion", "vmware_workstation"].each do |vmware|
-        worker.vm.provider vmware do |v|
-          v.vmx['memsize'] = $worker_vm_memory
-        end
-      end
+#      ["vmware_fusion", "vmware_workstation"].each do |vmware|
+#        worker.vm.provider vmware do |v|
+#          v.vmx['memsize'] = $worker_vm_memory
+#        end
+#      end
 
       worker.vm.provider :virtualbox do |vb|
         vb.memory = $worker_vm_memory
@@ -245,18 +268,20 @@ Vagrant.configure("2") do |config|
 
       provisionMachineSSL(worker,"worker","kube-worker-#{workerIP}",[workerIP])
 
-      worker.vm.provision :file, :source => env_file, :destination => "/tmp/coreos-kube-options.env"
-      worker.vm.provision :shell, :inline => "mkdir -p /run/coreos-kubernetes && mv /tmp/coreos-kube-options.env /run/coreos-kubernetes/options.env", :privileged => true
+      #worker.vm.provision :file, :source => env_file, :destination => "/tmp/coreos-kube-options.env"
+      #worker.vm.provision :shell, :inline => "mkdir -p /run/coreos-kubernetes && mv /tmp/coreos-kube-options.env /run/coreos-kubernetes/options.env", :privileged => true
 
-      worker.vm.provision :file, :source => WORKER_CLOUD_CONFIG_PATH, :destination => "/tmp/vagrantfile-user-data"
+      #worker.vm.provision :file, :source => WORKER_CLOUD_CONFIG_PATH, :destination => "/tmp/vagrantfile-user-data"
 
       # KJC : /var/lib/coreos-vagrant/ didn't exist
 		#worker.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
 
-      worker.vm.provision :shell, :inline => "mkdir -p /var/lib/coreos-vagrant && mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
+      #worker.vm.provision :shell, :inline => "mkdir -p /var/lib/coreos-vagrant && mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
 
 #KJC
+system("ct -in-file=worker3.ct -out-file=IgnitionVirtualDisks/worker.ign -platform vagrant-virtualbox -pretty -strict --files-dir .") or abort ("Failed generating Worker Ignition files.")
       worker.vm.provider :virtualbox do |vb|
+	 		#config.ignition.enabled = false
 	 		config.ignition.enabled = true
 			config.ignition.config_obj = :virtualbox
   		  	config.ignition.ip = workerIP
@@ -265,8 +290,8 @@ Vagrant.configure("2") do |config|
   		  	config.ignition.drive_name = "configDskWorker"+i.to_s
   		  	# when the ignition config doesn't exist, the plugin automatically generates a very basic Ignition with the ssh key
   		  	# and previously specified options (ip and hostname). Otherwise, it appends those to the provided config.ign below
-  		  	if File.exist?(IGNITION_CONFIG_PATH)
-  		 		config.ignition.path = 'config.ign'
+  		  	if File.exist?(IGNITION_WORKER_CONFIG_PATH)
+  		 		config.ignition.path = 'worker.ign'
   		  	end
 		end
   	  end
