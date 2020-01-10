@@ -86,10 +86,14 @@ function init_flannel {
             break
         fi
     done
-    RES=$(curl --silent -X PUT -d "value={\"Network\":\"$POD_NETWORK\",\"Backend\":{\"Type\":\"vxlan\"}}" "$ACTIVE_ETCD/v2/keys/coreos.com/network/config?prevExist=false")
-    if [ -z "$(echo $RES | grep '"action":"create"')" ] && [ -z "$(echo $RES | grep 'Key already exists')" ]; then
-        echo "Unexpected error configuring flannel pod network: $RES"
-    fi
+
+	 # KJC
+	 # the flanneld configuraiton is now performed on the etcd server when it is first set up.
+	 #
+    #RES=$(curl --silent -X PUT -d "value={\"Network\":\"$POD_NETWORK\",\"Backend\":{\"Type\":\"vxlan\"}}" "$ACTIVE_ETCD/v2/keys/coreos.com/network/config?prevExist=false")
+    #if [ -z "$(echo $RES | grep '"action":"create"')" ] && [ -z "$(echo $RES | grep 'Key already exists')" ]; then
+    #    echo "Unexpected error configuring flannel pod network: $RES"
+    #fi
 }
 
 function init_templates {

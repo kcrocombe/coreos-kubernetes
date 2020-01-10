@@ -1,0 +1,49 @@
+# Simple ct source to set up an etcd server on CoreOs.
+#
+# It will configure the etcd-member service ( which runs etcd in a container). etcd-member
+# forms part of a standard CoreOS install.
+#
+# It is set up to set up a etcd cluster of just the one machine ( this one). Is we are going to set up 
+# more than one, it will probably be easier to use the discovery mechanism instead.
+#
+# It will also configure the  flannel network fabric.
+#
+# Note a default flannel network configuration get written to the etcd repository on startup.
+#
+#
+locksmith:
+  reboot_strategy: "off"
+  
+etcd:
+  name:                        "{HOSTNAME}"
+  listen_peer_urls:            "http://{PRIVATE_IPV4}:2380"
+  listen_client_urls:          "http://0.0.0.0:2379"
+  initial_advertise_peer_urls: "http://{PRIVATE_IPV4}:2380"
+  advertise_client_urls:       "http://{PRIVATE_IPV4}:2379"
+  # replace "<token>" with a valid etcd discovery token
+  # discovery:                   "https://discovery.etcd.io/<token>"
+  initial_cluster:            "{HOSTNAME}=http://{PRIVATE_IPV4}:2380"
+
+systemd:
+  units:
+#    - name: docker-tcp.socket
+#      enable: true
+#      contents: |
+#        [Unit]
+#        Description=Docker Socket for the API
+#
+#        [Socket]
+#        ListenStream=2375
+#        Service=docker.service
+#        BindIPv6Only=both
+#
+#        [Install]
+#        WantedBy=sockets.target
+    - name: flanneld.service
+      dropins:
+        - name: 50-network-config.conf
+          contents: |
+            [Service]
+            ExecStartPre=/usr/bin/etcdctl set coreos.com/network/config '{ "Network": "10.2.0.0/16","Backend":{"Type":"vxlan"}}'
+
+flannel: ~
