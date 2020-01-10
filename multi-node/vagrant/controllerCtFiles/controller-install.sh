@@ -5,7 +5,12 @@ set -e
 export ETCD_ENDPOINTS=http://172.17.4.51:2379
 
 # Specify the version (vX.Y.Z) of Kubernetes assets to deploy
-export K8S_VER=v1.5.4_coreos.0
+#
+# KJC : 01/01/2020 Upgrade to 1.9.11
+#
+#export K8S_VER=v1.5.4_coreos.0
+#
+export K8S_VER=v1.9.11_coreos.0
 
 # Hyperkube image repository to use.
 export HYPERKUBE_IMAGE_REPO=quay.io/coreos/hyperkube
@@ -122,8 +127,15 @@ ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
 ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
 ExecStartPre=/usr/bin/mkdir -p /var/log/containers
 ExecStartPre=-/usr/bin/rkt rm --uuid-file=${uuid_file}
+#
+# KJC : 01/01/2020
+#
+#  --api-servers=http://127.0.0.1:8080 \
+# -->
+#--kubeconfig=/etc/kubernetes/master-kubeconfig.yaml
+#
 ExecStart=/usr/lib/coreos/kubelet-wrapper \
-  --api-servers=http://127.0.0.1:8080 \
+  --kubeconfig=/etc/kubernetes/master-kubeconfig.yaml \
   --register-schedulable=false \
   --cni-conf-dir=/etc/kubernetes/cni/net.d \
   --network-plugin=cni \
@@ -241,6 +253,31 @@ spec:
   - hostPath:
       path: /var/run/dbus
     name: dbus
+EOF
+    fi
+#
+#KJC : 01/01/2020. Added in a new configuration file to reference the 
+# api server. Should this be over the secure 443 port?
+#
+    local TEMPLATE=/etc/kubernetes/master-kubeconfig.yaml
+    if [ ! -f $TEMPLATE ]; then
+        echo "TEMPLATE: $TEMPLATE"
+        mkdir -p $(dirname $TEMPLATE)
+        cat << EOF > $TEMPLATE
+apiVersion: v1
+kind: Config
+clusters:
+- name: local
+  cluster:
+    server: http://127.0.0.1:8080
+users:
+- name: kubelet
+contexts:
+- context:
+    cluster: local
+    user: kubelet
+  name: kubelet-context
+current-context: kubelet-context
 EOF
     fi
 

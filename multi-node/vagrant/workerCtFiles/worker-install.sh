@@ -10,7 +10,11 @@ export ETCD_ENDPOINTS=http://172.17.4.51:2379
 export CONTROLLER_ENDPOINT=https://172.17.4.101:443
 
 # Specify the version (vX.Y.Z) of Kubernetes assets to deploy
-export K8S_VER=v1.5.4_coreos.0
+# 
+# KJC : 01/01/2020 - Upgrade kubernetes
+# export K8S_VER=v1.5.4_coreos.0
+#
+export K8S_VER=v1.9.11_coreos.0
 
 # Hyperkube image repository to use.
 export HYPERKUBE_IMAGE_REPO=quay.io/coreos/hyperkube
@@ -89,13 +93,25 @@ ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
 ExecStartPre=/usr/bin/mkdir -p /var/log/containers
 ExecStartPre=-/usr/bin/rkt rm --uuid-file=${uuid_file}
 ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
+#
+#
+# KJC: 01-Jan-2020
+#
+# removed
+#  --rkt-stage1-image=coreos.com/rkt/stage1-coreos \
+#
+# removed
+#  --api-servers=${CONTROLLER_ENDPOINT} \
+#
+# This will now use the amended kubeconfig file to trackdown the api server
+#
+# --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml 
+#
 ExecStart=/usr/lib/coreos/kubelet-wrapper \
-  --api-servers=${CONTROLLER_ENDPOINT} \
   --cni-conf-dir=/etc/kubernetes/cni/net.d \
   --network-plugin=cni \
   --container-runtime=${CONTAINER_RUNTIME} \
   --rkt-path=/usr/bin/rkt \
-  --rkt-stage1-image=coreos.com/rkt/stage1-coreos \
   --register-node=true \
   --allow-privileged=true \
   --pod-manifest-path=/etc/kubernetes/manifests \
@@ -176,6 +192,13 @@ EOF
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
         mkdir -p $(dirname $TEMPLATE)
+#
+# KJC : 01/01/2020
+#	The kubeconfig file now has an extra clause. This represents the
+#	api servers endpoint.
+#
+#    server: ${CONTROLLER_ENDPOINT}
+#
         cat << EOF > $TEMPLATE
 apiVersion: v1
 kind: Config
@@ -183,6 +206,7 @@ clusters:
 - name: local
   cluster:
     certificate-authority: /etc/kubernetes/ssl/ca.pem
+    server: ${CONTROLLER_ENDPOINT}
 users:
 - name: kubelet
   user:
