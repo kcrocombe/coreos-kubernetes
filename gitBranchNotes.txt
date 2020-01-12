@@ -1,0 +1,3 @@
+This branch exists in order to capture the work necessary to migrate to using the kubernetes images from gcr.io/google_containers/hyperkube-{ARCH}:{K8S_VERSION}
+rather than from quay.io. This should enbale us ot get contemporary versions of kubernees running. ( i.e. 1.17).
+
