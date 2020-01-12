@@ -1,3 +1,9 @@
 .vagrant
+.IgnitionVirtualDisks
+workerCtFiles/options.env
+controllerCtFiles/options.env
 config.rb
+*.log
+*.merged
+localKubectl/kubectl
 ssl/

@@ -1034,7 +1034,9 @@ function enable_calico {
 
 init_config
 init_templates
-systemctl enable etcd2; systemctl start etcd2
+# KJC : v2 of etcd no longer in use on coreOs. Amednded to reflect the new containerized version
+# systemctl enable etcd2; systemctl start etcd2
+systemctl enable /usr/lib64/systemd/system/etcd-member.service; systemctl start etcd-member
 
 chmod +x /opt/bin/host-rkt
 

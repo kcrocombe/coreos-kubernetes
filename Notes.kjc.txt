@@ -1,0 +1,34 @@
+This set of files represnts my attempt to evolve the Vagrant coreos/kubernetes Vagrant into something a little more contemporary. The original
+repository built a kubernetes installation based on the v1.5.4 version of kubenetes. Contemporay versions, at the time of writing is 1.17, which
+is some way out of date.
+
+The instalaltion builds a container-based kubernetes: each of the components run within a container. Some containers run within rkt ("rocket"), which
+is coreOs own container system: others run within docker.
+
+The kubernetes image is taken from the specific coreOS images at quay.io/coreos/hyperkube  (these are rkt images)
+
+Images Stopped being maintained in this location after v1.9.11.
+
+Contemporary Images are still avaailable at a differnt location: gcr.io/google_containers/hyperkube-amd64:{K8S_VERSION}. Note therse are docker images, not rkt: rkt can run docker images without problem.
+
+
+There are 2 flavours of installation in these directories:
+
+	single server - This runs all kubernetes stuff on a single virtual server. I have not attempted to upgrade any of this stuff as of yet: it runs
+	kerbetes 1.5.4. Thes servers are provisioned usig coreos-cloudinit, which is now depreciated. Consequently it is likely to stop working as
+	CoreOs moves forward.
+
+	multieserver - This tuns kerbetes on across 3 virtual servers. Kerbetes has been upgraded to run v1.9.11 : the latest available on in the quay.io
+	repository.   The provisioning method has been amended to be Ignition based - which is the method favaoured by recent CoreOs versions.
+
+
+Work to be done going forward.
+
+	Amend the Single server stuff so that it waorks with Ignition and v v.1.9.11
+
+	Amend both installations so tha it builds off images available on gcr.io
+
+	Perhaps amend the provisioning, so that Ignition installs the required files direcly, rather then injecting a build script to write them when it runs.
+
+
+	

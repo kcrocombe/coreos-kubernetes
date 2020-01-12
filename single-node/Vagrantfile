@@ -11,14 +11,16 @@ Vagrant.require_version ">= 1.6.0"
 # NB : Only the Beta Channel seems to work out of the box - probably because this image has the 'core' user already configured. The
 # other 2 will need to have the core user injected in by an Ignition script as per below.
 #
-$update_channel = "stable"
+#$update_channel = "stable"
+$update_channel = "beta"
 #$update_channel = "alpha"
-#$update_channel = "beta"
 
 CLUSTER_IP="10.3.0.1"
 NODE_IP = "172.17.4.99"
-NODE_VCPUS = 1
-NODE_MEMORY_SIZE = 2048
+#NODE_VCPUS = 1
+NODE_VCPUS = 4
+#NODE_MEMORY_SIZE = 2048
+NODE_MEMORY_SIZE = 4096
 USER_DATA_PATH = File.expand_path("user-data")
 SSL_TARBALL_PATH = File.expand_path("ssl/controller.tar")
 
@@ -77,5 +79,4 @@ Vagrant.configure("2") do |config|
   config.vm.provision :file, :source => USER_DATA_PATH, :destination => "/tmp/vagrantfile-user-data"
   #config.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
   config.vm.provision :shell, :inline => "mkdir -p /var/lib/coreos-vagrant && mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
-  
 end
