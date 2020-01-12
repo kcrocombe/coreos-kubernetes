@@ -1,0 +1,94 @@
+storage:
+  files:
+    - path: /etc/kubernetes/ssl/ca.pem
+      filesystem: root
+      contents:
+        local: ssl/ca.pem
+      mode: 0600
+      user:
+        id: 0
+      group:
+        id: 0
+    - path: /etc/kubernetes/ssl/apiserver.pem
+      filesystem: root
+      contents:
+        local: ssl/apiserver.pem
+      mode: 0600
+      user:
+        id: 0
+      group:
+        id: 0
+    - path: /etc/kubernetes/ssl/apiserver-key.pem
+      filesystem: root
+      contents:
+        local: ssl/apiserver-key.pem
+      mode: 0600
+      user:
+        id: 0
+      group:
+        id: 0
+    - path: /var/lib/kubernetes-install/kubernetes-install.sh
+      filesystem: root
+      contents:
+        local: controllerCtFiles/controller-install.sh
+      mode: 0755
+      user:
+        id: 0
+      group:
+        id: 0
+    - path: /var/lib/kubernetes-install/kubernetes-install-preconditions.sh
+      filesystem: root
+      contents:
+        local: controllerCtFiles/kubernetes-install-preconditions.sh
+      mode: 0755
+      user:
+        id: 0
+      group:
+        id: 0
+  directories:
+    - path: /etc/kubernetes
+      filesystem: root
+      mode: 0755
+      user:
+        id: 0
+      group:
+        id: 0
+    - path: /etc/kubernetes/ssl
+      filesystem: root
+      mode: 0755
+      user:
+        id: 0
+      group:
+        id: 0
+    - path: /var/lib/kubernetes-install
+      filesystem: root
+      mode: 0755
+      user:
+        id: 0
+      group:
+        id: 0
+systemd:
+  units:
+    - name: kubernetes-install-preconditon.service
+      enabled: true
+      contents: |
+       [Unit]
+       Description="Waits for the pre-conditions for kubernetes install to be satisfied, and then exits"
+       [Service]
+       Type=oneshot
+       RemainAfterExit=true
+       ExecStart=/bin/bash /var/lib/kubernetes-install/kubernetes-install-preconditions.sh
+       [Install]
+       WantedBy=multi-user.target
+    - name: kubernetes-install.service
+      enabled: true
+      contents: |
+       [Unit]
+       Description="Installs and starts kubernetes services"
+       After=kubernetes-install-preconditon.service
+       [Service]
+       Type=oneshot
+       RemainAfterExit=true
+       ExecStart=/bin/bash /var/lib/kubernetes-install/kubernetes-install.sh
+       [Install]
+       WantedBy=multi-user.target
