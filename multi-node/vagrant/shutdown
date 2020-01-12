@@ -1,0 +1,5 @@
+#!/bin/bash
+for server in w1 c1 e1
+do
+	vagrant halt $server
+done

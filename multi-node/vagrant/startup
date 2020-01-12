@@ -1,0 +1,6 @@
+#!/bin/bash
+for server in e1 c1 w1
+do
+	vagrant up $server
+	sleep 15
+done

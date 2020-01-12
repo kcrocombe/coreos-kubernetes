@@ -130,18 +130,20 @@ ExecStartPre=-/usr/bin/rkt rm --uuid-file=${uuid_file}
 #
 # KJC : 01/01/2020
 #
-#  --api-servers=http://127.0.0.1:8080 \
+# --api-servers=http://127.0.0.1:8080 \
 # -->
-#--kubeconfig=/etc/kubernetes/master-kubeconfig.yaml
+# --kubeconfig=/etc/kubernetes/master-kubeconfig.yaml
 #
+# Removed: redundant in v1.9.11
+#  --rkt-stage1-image=coreos.com/rkt/stage1-coreos \
+#  --register-schedulable=false \
+
 ExecStart=/usr/lib/coreos/kubelet-wrapper \
   --kubeconfig=/etc/kubernetes/master-kubeconfig.yaml \
-  --register-schedulable=false \
   --cni-conf-dir=/etc/kubernetes/cni/net.d \
   --network-plugin=cni \
   --container-runtime=${CONTAINER_RUNTIME} \
   --rkt-path=/usr/bin/rkt \
-  --rkt-stage1-image=coreos.com/rkt/stage1-coreos \
   --allow-privileged=true \
   --pod-manifest-path=/etc/kubernetes/manifests \
   --hostname-override=${ADVERTISE_IP} \
