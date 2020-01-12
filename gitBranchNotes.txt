@@ -1,0 +1,4 @@
+ This bracnch represents the work needed to change the basic Ignition provisioning mechnanism. Currently this basically injects a build script and creates a one off
+ service in order to run it at first boot.
+
+ Want to see if I can write inject the various configuraiton files needed directly, and so not need a build script and one off install service.
