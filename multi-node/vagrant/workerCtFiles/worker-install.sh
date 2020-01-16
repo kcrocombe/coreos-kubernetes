@@ -14,10 +14,18 @@ export CONTROLLER_ENDPOINT=https://172.17.4.101:443
 # KJC : 01/01/2020 - Upgrade kubernetes
 # export K8S_VER=v1.5.4_coreos.0
 #
-export K8S_VER=v1.9.11_coreos.0
-
+#
+# KJC : 15/01/2020 - Migrating hte image repository to use the docker one from the google
+# gcr.io repository.
+#
+#export K8S_VER=v1.9.11_coreos.0
+#
 # Hyperkube image repository to use.
-export HYPERKUBE_IMAGE_REPO=quay.io/coreos/hyperkube
+# export HYPERKUBE_IMAGE_REPO=quay.io/coreos/hyperkube
+#
+#export HYPERKUBE_IMAGE_REPO=docker://gcr.io/google_containers/hyperkube-amd64
+export HYPERKUBE_IMAGE_REPO=gcr.io/google_containers/hyperkube-amd64
+export K8S_VER=v1.9.11
 
 # The CIDR network to use for pod IPs.
 # Each pod launched in the cluster will be assigned an IP out of this range.
@@ -77,7 +85,32 @@ function init_templates {
 [Service]
 Environment=KUBELET_IMAGE_TAG=${K8S_VER}
 Environment=KUBELET_IMAGE_URL=${HYPERKUBE_IMAGE_REPO}
-Environment="RKT_RUN_ARGS=--uuid-file-save=${uuid_file} \
+#
+# KJC : 15/01/2020 - Migrating the image repository to use the docker one from the google
+# gcr.io repository.
+#
+#Environment="RKT_RUN_ARGS=--uuid-file-save=${uuid_file} \
+#  --volume dns,kind=host,source=/etc/resolv.conf \
+#  --mount volume=dns,target=/etc/resolv.conf \
+#  --volume rkt,kind=host,source=/opt/bin/host-rkt \
+#  --mount volume=rkt,target=/usr/bin/rkt \
+#  --volume var-lib-rkt,kind=host,source=/var/lib/rkt \
+#  --mount volume=var-lib-rkt,target=/var/lib/rkt \
+#  --volume stage,kind=host,source=/tmp \
+#  --mount volume=stage,target=/tmp \
+#  --volume var-log,kind=host,source=/var/log \
+#  --mount volume=var-log,target=/var/log \
+#  ${CALICO_OPTS}"
+#
+# Additional Environment line. The images available at gcr.io are in docker format. To handle this,
+# rkt explicitly requires the docker protocol specified in its image URL. This is in contrast in to docker
+# itself, which will complain if the protocol prefix is specified. Hence we need to use the KUBELET
+# IMAGE for exclusive use by rkt.
+#
+Environment=KUBELET_IMAGE=docker://${HYPERKUBE_IMAGE_REPO}:${K8S_VER}
+Environment="RKT_RUN_ARGS=\
+  --uuid-file-save=${uuid_file} \
+  --insecure-options=image \
   --volume dns,kind=host,source=/etc/resolv.conf \
   --mount volume=dns,target=/etc/resolv.conf \
   --volume rkt,kind=host,source=/opt/bin/host-rkt \
