@@ -25,6 +25,7 @@ fi
 OUTFILE="$OUTDIR/ca.pem"
 
 if [ -f "$OUTFILE" ];then
+	 echo "$OUTFILE already exists. Skipping..."
     exit 0
 fi
 

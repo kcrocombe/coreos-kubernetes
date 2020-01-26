@@ -5,10 +5,17 @@ set -e
 export ETCD_ENDPOINTS="http://127.0.0.1:2379"
 
 # Specify the version (vX.Y.Z) of Kubernetes assets to deploy
-export K8S_VER=v1.5.4_coreos.0
+#export K8S_VER=v1.5.4_coreos.0
+#export K8S_VER=v1.9.11_coreos.0
+#export K8S_VER=v1.9.11
+export K8S_VER=v1.10.13
 
+# KJC : 15/01/2020 - Migrating hte image repository to use the docker one from the google
+# gcr.io repository.
+#
 # Hyperkube image repository to use.
-export HYPERKUBE_IMAGE_REPO=quay.io/coreos/hyperkube
+#export HYPERKUBE_IMAGE_REPO=quay.io/coreos/hyperkube
+export HYPERKUBE_IMAGE_REPO=gcr.io/google_containers/hyperkube-amd64
 
 # The CIDR network to use for pod IPs.
 # Each pod launched in the cluster will be assigned an IP out of this range.
@@ -96,7 +103,32 @@ ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
 ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
 Environment=KUBELET_IMAGE_TAG=${K8S_VER}
 Environment=KUBELET_IMAGE_URL=${HYPERKUBE_IMAGE_REPO}
-Environment="RKT_RUN_ARGS=--uuid-file-save=${uuid_file} \
+#
+# KJC : 15/01/2020 - Migrating the image repository to use the docker one from the google
+# gcr.io repository.
+#
+#Environment="RKT_RUN_ARGS=--uuid-file-save=${uuid_file} \
+#  --volume dns,kind=host,source=/etc/resolv.conf \
+#  --mount volume=dns,target=/etc/resolv.conf \
+#  --volume rkt,kind=host,source=/opt/bin/host-rkt \
+#  --mount volume=rkt,target=/usr/bin/rkt \
+#  --volume var-lib-rkt,kind=host,source=/var/lib/rkt \
+#  --mount volume=var-lib-rkt,target=/var/lib/rkt \
+#  --volume stage,kind=host,source=/tmp \
+#  --mount volume=stage,target=/tmp \
+#  --volume var-log,kind=host,source=/var/log \
+#  --mount volume=var-log,target=/var/log \
+#  ${CALICO_OPTS}"
+#
+# Additional Environment line. The images available at gcr.io are in docker format. To handle this,
+# rkt explicitly requires the docker protocol specified in its image URL. This is in contrast in to docker
+# itself, which will complain if the protocol prefix is specified. Hence we need to use the KUBELET
+# IMAGE for exclusive use by rkt.
+Environment=KUBELET_IMAGE=docker://${HYPERKUBE_IMAGE_REPO}:${K8S_VER}
+
+Environment="RKT_RUN_ARGS=\
+  --uuid-file-save=${uuid_file} \
+  --insecure-options=image \
   --volume dns,kind=host,source=/etc/resolv.conf \
   --mount volume=dns,target=/etc/resolv.conf \
   --volume rkt,kind=host,source=/opt/bin/host-rkt \
@@ -111,19 +143,34 @@ Environment="RKT_RUN_ARGS=--uuid-file-save=${uuid_file} \
 ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
 ExecStartPre=/usr/bin/mkdir -p /var/log/containers
 ExecStartPre=-/usr/bin/rkt rm --uuid-file=${uuid_file}
+#
+#ExecStart=/usr/lib/coreos/kubelet-wrapper \
+#  --api-servers=http://127.0.0.1:8080 \
+#  --cni-conf-dir=/etc/kubernetes/cni/net.d \
+#  --network-plugin=cni \
+#  --container-runtime=${CONTAINER_RUNTIME} \
+#  --rkt-path=/usr/bin/rkt \
+#  --rkt-stage1-image=coreos.com/rkt/stage1-coreos \
+#  --register-node=true \
+#  --allow-privileged=true \
+#  --pod-manifest-path=/etc/kubernetes/manifests \
+#  --hostname-override=${ADVERTISE_IP} \
+#  --cluster_dns=${DNS_SERVICE_IP} \
+#  --cluster_domain=cluster.local
+#
 ExecStart=/usr/lib/coreos/kubelet-wrapper \
-  --api-servers=http://127.0.0.1:8080 \
+  --kubeconfig=/etc/kubernetes/master-kubeconfig.yaml \
   --cni-conf-dir=/etc/kubernetes/cni/net.d \
   --network-plugin=cni \
   --container-runtime=${CONTAINER_RUNTIME} \
   --rkt-path=/usr/bin/rkt \
-  --rkt-stage1-image=coreos.com/rkt/stage1-coreos \
   --register-node=true \
   --allow-privileged=true \
   --pod-manifest-path=/etc/kubernetes/manifests \
   --hostname-override=${ADVERTISE_IP} \
   --cluster_dns=${DNS_SERVICE_IP} \
   --cluster_domain=cluster.local
+#
 ExecStop=-/usr/bin/rkt stop --uuid-file=${uuid_file}
 Restart=always
 RestartSec=10
@@ -133,7 +180,9 @@ KillMode=process
 WantedBy=multi-user.target
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/opt/bin/host-rkt
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -151,7 +200,9 @@ EOF
 exec nsenter -m -u -i -n -p -t 1 -- /usr/bin/rkt "\$@"
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/etc/systemd/system/load-rkt-stage1.service
     if [ ${CONTAINER_RUNTIME} = "rkt" ] && [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -171,7 +222,9 @@ ExecStart=/usr/bin/rkt fetch /usr/lib/rkt/stage1-images/stage1-coreos.aci /usr/l
 RequiredBy=rkt-api.service
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/etc/systemd/system/rkt-api.service
     if [ ${CONTAINER_RUNTIME} = "rkt" ] && [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -189,7 +242,9 @@ RestartSec=10
 RequiredBy=kubelet.service
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/etc/kubernetes/manifests/kube-proxy.yaml
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -229,7 +284,9 @@ spec:
     name: dbus
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/etc/kubernetes/manifests/kube-apiserver.yaml
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -291,7 +348,9 @@ spec:
     name: ssl-certs-host
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/etc/kubernetes/manifests/kube-controller-manager.yaml
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -339,7 +398,9 @@ spec:
     name: ssl-certs-host
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/etc/kubernetes/manifests/kube-scheduler.yaml
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -371,7 +432,9 @@ spec:
       timeoutSeconds: 15
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/srv/kubernetes/manifests/kube-dns-de.yaml
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -516,7 +579,9 @@ spec:
       dnsPolicy: Default
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/srv/kubernetes/manifests/kube-dns-autoscaler-de.yaml
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -557,7 +622,9 @@ spec:
           - --v=2
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/srv/kubernetes/manifests/kube-dns-svc.yaml
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -585,7 +652,9 @@ spec:
     protocol: TCP
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/srv/kubernetes/manifests/heapster-de.yaml
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -659,7 +728,9 @@ spec:
             - --estimator=exponential
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/srv/kubernetes/manifests/heapster-svc.yaml
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -681,7 +752,9 @@ spec:
     k8s-app: heapster
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/srv/kubernetes/manifests/kube-dashboard-de.yaml
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -728,7 +801,9 @@ spec:
           timeoutSeconds: 30
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/srv/kubernetes/manifests/kube-dashboard-svc.yaml
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -750,7 +825,9 @@ spec:
     targetPort: 9090
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/etc/flannel/options.env
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -760,7 +837,9 @@ FLANNELD_IFACE=$ADVERTISE_IP
 FLANNELD_ETCD_ENDPOINTS=$ETCD_ENDPOINTS
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/etc/systemd/system/flanneld.service.d/40-ExecStartPre-symlink.conf.conf
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -770,7 +849,9 @@ EOF
 ExecStartPre=/usr/bin/ln -sf /etc/flannel/options.env /run/flannel/options.env
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/etc/systemd/system/docker.service.d/40-flannel.conf
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -783,7 +864,9 @@ After=flanneld.service
 EnvironmentFile=/etc/kubernetes/cni/docker_opts_cni.env
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/etc/kubernetes/cni/docker_opts_cni.env
     if [ ! -f $TEMPLATE ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -793,7 +876,9 @@ DOCKER_OPT_BIP=""
 DOCKER_OPT_IPMASQ=""
 EOF
     fi
-
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/etc/kubernetes/cni/net.d/10-flannel.conf
     if [ "${USE_CALICO}" = "false" ] && [ ! -f "${TEMPLATE}" ]; then
         echo "TEMPLATE: $TEMPLATE"
@@ -808,6 +893,9 @@ EOF
 }
 EOF
     fi
+#
+#----------------------------------------------------------
+#
     local TEMPLATE=/srv/kubernetes/manifests/calico.yaml
     if [ "${USE_CALICO}" = "true" ]; then
     echo "TEMPLATE: $TEMPLATE"
@@ -998,6 +1086,33 @@ spec:
             # kubernetes.default to the correct service clusterIP.
             - name: CONFIGURE_ETC_HOSTS
               value: "true"
+EOF
+    fi
+#
+#--------------------------------------------------------------------
+#
+#KJC : 01/01/2020. Added in a new configuration file to reference the
+# api server. Should this be over the secure 443 port?
+#
+    local TEMPLATE=/etc/kubernetes/master-kubeconfig.yaml
+    if [ ! -f $TEMPLATE ]; then
+        echo "TEMPLATE: $TEMPLATE"
+        mkdir -p $(dirname $TEMPLATE)
+        cat << EOF > $TEMPLATE
+apiVersion: v1
+kind: Config
+clusters:
+- name: local
+  cluster:
+    server: http://127.0.0.1:8080
+users:
+- name: kubelet
+contexts:
+- context:
+    cluster: local
+    user: kubelet
+  name: kubelet-context
+current-context: kubelet-context
 EOF
     fi
 }
