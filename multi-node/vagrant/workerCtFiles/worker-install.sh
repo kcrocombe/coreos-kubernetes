@@ -26,7 +26,8 @@ export CONTROLLER_ENDPOINT=https://172.17.4.101:443
 #export HYPERKUBE_IMAGE_REPO=docker://gcr.io/google_containers/hyperkube-amd64
 export HYPERKUBE_IMAGE_REPO=gcr.io/google_containers/hyperkube-amd64
 #export K8S_VER=v1.9.11
-export K8S_VER=v1.10.13
+#export K8S_VER=v1.10.13
+export K8S_VER=v1.11.10
 
 # The CIDR network to use for pod IPs.
 # Each pod launched in the cluster will be assigned an IP out of this range.
@@ -141,11 +142,29 @@ ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
 #
 # --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml 
 #
+#
+# KJC : 20/01/2020
+# Upgrade to v1.11.10. --rkt-path is depreciated
+#
+# ExecStart=/usr/lib/coreos/kubelet-wrapper \
+#   --cni-conf-dir=/etc/kubernetes/cni/net.d \
+#   --network-plugin=cni \
+#   --container-runtime=${CONTAINER_RUNTIME} \
+#   --rkt-path=/usr/bin/rkt \
+#   --register-node=true \
+#   --allow-privileged=true \
+#   --pod-manifest-path=/etc/kubernetes/manifests \
+#   --hostname-override=${ADVERTISE_IP} \
+#   --cluster_dns=${DNS_SERVICE_IP} \
+#   --cluster_domain=cluster.local \
+#   --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
+#   --tls-cert-file=/etc/kubernetes/ssl/worker.pem \
+#   --tls-private-key-file=/etc/kubernetes/ssl/worker-key.pem
+#
 ExecStart=/usr/lib/coreos/kubelet-wrapper \
   --cni-conf-dir=/etc/kubernetes/cni/net.d \
   --network-plugin=cni \
   --container-runtime=${CONTAINER_RUNTIME} \
-  --rkt-path=/usr/bin/rkt \
   --register-node=true \
   --allow-privileged=true \
   --pod-manifest-path=/etc/kubernetes/manifests \
@@ -155,6 +174,7 @@ ExecStart=/usr/lib/coreos/kubelet-wrapper \
   --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
   --tls-cert-file=/etc/kubernetes/ssl/worker.pem \
   --tls-private-key-file=/etc/kubernetes/ssl/worker-key.pem
+#
 ExecStop=-/usr/bin/rkt stop --uuid-file=${uuid_file}
 Restart=always
 RestartSec=10

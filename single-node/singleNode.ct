@@ -117,6 +117,7 @@ systemd:
 #
 #        [Install]
 #        WantedBy=sockets.target
+
     - name: flanneld.service
       dropins:
         - name: 50-network-config.conf
@@ -134,5 +135,3 @@ systemd:
        ExecStart=/bin/bash /var/lib/kubernetes-install/kubernetes-install.sh
        [Install]
        WantedBy=multi-user.target
-
-

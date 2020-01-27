@@ -21,7 +21,8 @@ export ETCD_ENDPOINTS=http://172.17.4.51:2379
 export HYPERKUBE_IMAGE_REPO=gcr.io/google_containers/hyperkube-amd64
 #
 #export K8S_VER=v1.9.11
-export K8S_VER=v1.10.13
+#export K8S_VER=v1.10.13
+export K8S_VER=v1.11.10
 
 
 # The CIDR network to use for pod IPs.
@@ -172,18 +173,33 @@ ExecStartPre=-/usr/bin/rkt rm --uuid-file=${uuid_file}
 # Removed: redundant in v1.9.11
 #  --rkt-stage1-image=coreos.com/rkt/stage1-coreos \
 #  --register-schedulable=false \
-
+#
+# KJC : 20/01/2020
+# Upgrade to v1.11.10. --rkt-path is depreciated
+#
+#ExecStart=/usr/lib/coreos/kubelet-wrapper \
+#  --kubeconfig=/etc/kubernetes/master-kubeconfig.yaml \
+#  --cni-conf-dir=/etc/kubernetes/cni/net.d \
+#  --network-plugin=cni \
+#  --container-runtime=${CONTAINER_RUNTIME} \
+#  --rkt-path=/usr/bin/rkt \
+#  --allow-privileged=true \
+#  --pod-manifest-path=/etc/kubernetes/manifests \
+#  --hostname-override=${ADVERTISE_IP} \
+#  --cluster_dns=${DNS_SERVICE_IP} \
+#  --cluster_domain=cluster.local
+#
 ExecStart=/usr/lib/coreos/kubelet-wrapper \
   --kubeconfig=/etc/kubernetes/master-kubeconfig.yaml \
   --cni-conf-dir=/etc/kubernetes/cni/net.d \
   --network-plugin=cni \
   --container-runtime=${CONTAINER_RUNTIME} \
-  --rkt-path=/usr/bin/rkt \
   --allow-privileged=true \
   --pod-manifest-path=/etc/kubernetes/manifests \
   --hostname-override=${ADVERTISE_IP} \
   --cluster_dns=${DNS_SERVICE_IP} \
   --cluster_domain=cluster.local
+
 ExecStop=-/usr/bin/rkt stop --uuid-file=${uuid_file}
 Restart=always
 RestartSec=10

@@ -8,7 +8,8 @@ export ETCD_ENDPOINTS="http://127.0.0.1:2379"
 #export K8S_VER=v1.5.4_coreos.0
 #export K8S_VER=v1.9.11_coreos.0
 #export K8S_VER=v1.9.11
-export K8S_VER=v1.10.13
+#export K8S_VER=v1.10.13
+export K8S_VER=v1.11.10
 
 # KJC : 15/01/2020 - Migrating hte image repository to use the docker one from the google
 # gcr.io repository.
@@ -158,12 +159,27 @@ ExecStartPre=-/usr/bin/rkt rm --uuid-file=${uuid_file}
 #  --cluster_dns=${DNS_SERVICE_IP} \
 #  --cluster_domain=cluster.local
 #
+#
+# KJC : 28/01/20 - upgrade to v1.11.10
+#
+#ExecStart=/usr/lib/coreos/kubelet-wrapper \
+#  --kubeconfig=/etc/kubernetes/master-kubeconfig.yaml \
+#  --cni-conf-dir=/etc/kubernetes/cni/net.d \
+#  --network-plugin=cni \
+#  --container-runtime=${CONTAINER_RUNTIME} \
+#  --rkt-path=/usr/bin/rkt \
+#  --register-node=true \
+#  --allow-privileged=true \
+#  --pod-manifest-path=/etc/kubernetes/manifests \
+#  --hostname-override=${ADVERTISE_IP} \
+#  --cluster_dns=${DNS_SERVICE_IP} \
+#  --cluster_domain=cluster.local
+#
 ExecStart=/usr/lib/coreos/kubelet-wrapper \
   --kubeconfig=/etc/kubernetes/master-kubeconfig.yaml \
   --cni-conf-dir=/etc/kubernetes/cni/net.d \
   --network-plugin=cni \
   --container-runtime=${CONTAINER_RUNTIME} \
-  --rkt-path=/usr/bin/rkt \
   --register-node=true \
   --allow-privileged=true \
   --pod-manifest-path=/etc/kubernetes/manifests \
