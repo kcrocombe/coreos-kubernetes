@@ -8,11 +8,23 @@ require 'yaml'
 
 Vagrant.require_version ">= 1.6.0"
 
-# NB : Only the Beta Channel seems to work out of the box - probably because this image has the 'core' user already configured. The
-# other 2 will need to have the core user injected in by an Ignition script as per below.
-#
-#$update_channel = "stable"
-$update_channel = "beta"
+# KJC : Make sure the vagrant-ignition plugin is installed
+
+required_plugins = %w(vagrant-ignition)
+
+plugins_to_install = required_plugins.select { |plugin| not Vagrant.has_plugin? plugin }
+if not plugins_to_install.empty?
+  puts "Installing plugins: #{plugins_to_install.join(' ')}"
+  if system "vagrant plugin install #{plugins_to_install.join(' ')}"
+    exec "vagrant #{ARGV.join(' ')}"
+  else
+    abort "Installation of one or more plugins has failed. Aborting."
+  end
+end
+
+
+$update_channel = "stable"
+#$update_channel = "beta"
 #$update_channel = "alpha"
 
 CLUSTER_IP="10.3.0.1"
@@ -22,10 +34,22 @@ NODE_VCPUS = 4
 #NODE_MEMORY_SIZE = 2048
 NODE_MEMORY_SIZE = 3072
 #NODE_MEMORY_SIZE = 4096
-USER_DATA_PATH = File.expand_path("user-data")
-SSL_TARBALL_PATH = File.expand_path("ssl/controller.tar")
 
-IGNITION_CONFIG_PATH = File.join(File.dirname(__FILE__), "config.ign")
+
+#These are the CT scriprs and Ignition Files that will be injected into our provisioned server
+#
+HOME = File.dirname(__FILE__)
+IGNITION_DRIVE_ROOT = File.join(HOME,".IgnitionVirtualDisks")
+
+SSL_DIR=File.join(HOME,"ssl")
+
+if ! File.exist?(IGNITION_DRIVE_ROOT)
+   FileUtils.mkdir_p IGNITION_DRIVE_ROOT
+end
+
+CT_SINGLE_NODE_PATH= File.join(HOME, "singleNode.ct")
+IGNITION_SINGLE_NODE_PATH= File.join(IGNITION_DRIVE_ROOT, "singleNode.ign")
+
 
 system("mkdir -p ssl && ./../lib/init-ssl-ca ssl") or abort ("failed generating SSL CA artifacts")
 system("./../lib/init-ssl ssl apiserver controller IP.1=#{NODE_IP},IP.2=#{CLUSTER_IP}") or abort ("failed generating SSL certificate artifacts")
@@ -49,35 +73,36 @@ Vagrant.configure("2") do |config|
     v.check_guest_additions = false
     v.functional_vboxsf     = false
 
+  	 # plugin conflict
+  	 if Vagrant.has_plugin?("vagrant-vbguest") then
+    	config.vbguest.auto_update = false
+  	 end
+
+
+  	 config.vm.network :private_network, ip: NODE_IP
+  	 #config.vm.network :public_network, ip: NODE_IP
+
 	 # KJC - following was added to the gitHub cloned version in order that the 'core' user be injected by ignition
 	 # at node creattion time.
 	 #
 	 # enable ignition (this is always done on virtualbox as this is how the ssh key is added to the system)
+
+	 # Compile the yaml based .ct file to json based Ignition Configuration File
+    #
+    system("ct -in-file=#{CT_SINGLE_NODE_PATH} -out-file=#{IGNITION_SINGLE_NODE_PATH} -platform vagrant-virtualbox -pretty -strict --files-dir .") or abort ("Failed generating singleNode Ignition files.")
+
     config.ignition.enabled = true
 	 config.ignition.config_obj = v
 	 config.ignition.ip = NODE_IP
 	 config.ignition.hostname = config.vm.hostname
-	 config.ignition.drive_root = "IgnitionVirtualDisks"
+	 config.ignition.drive_root = IGNITION_DRIVE_ROOT
 	 config.ignition.drive_name = "configDsk"
+
     # when the ignition config doesn't exist, the plugin automatically generates a very basic Ignition with the ssh key
     # and previously specified options (ip and hostname). Otherwise, it appends those to the provided config.ign below
-    if File.exist?(IGNITION_CONFIG_PATH)
-    	config.ignition.path = 'config.ign'
+	 #
+    if File.exist?(IGNITION_SINGLE_NODE_PATH)
+    	config.ignition.path = IGNITION_SINGLE_NODE_PATH
 	 end
-
   end
-
-  # plugin conflict
-  if Vagrant.has_plugin?("vagrant-vbguest") then
-    config.vbguest.auto_update = false
-  end
-
-  config.vm.network :private_network, ip: NODE_IP
-
-  config.vm.provision :file, :source => SSL_TARBALL_PATH, :destination => "/tmp/ssl.tar"
-  config.vm.provision :shell, :inline => "mkdir -p /etc/kubernetes/ssl && tar -C /etc/kubernetes/ssl -xf /tmp/ssl.tar", :privileged => true
-
-  config.vm.provision :file, :source => USER_DATA_PATH, :destination => "/tmp/vagrantfile-user-data"
-  #config.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
-  config.vm.provision :shell, :inline => "mkdir -p /var/lib/coreos-vagrant && mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
 end

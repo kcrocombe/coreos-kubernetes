@@ -20,7 +20,8 @@ export ETCD_ENDPOINTS=http://172.17.4.51:2379
 #
 export HYPERKUBE_IMAGE_REPO=gcr.io/google_containers/hyperkube-amd64
 #
-export K8S_VER=v1.9.11
+#export K8S_VER=v1.9.11
+export K8S_VER=v1.10.13
 
 
 # The CIDR network to use for pod IPs.

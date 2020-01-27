@@ -25,7 +25,8 @@ export CONTROLLER_ENDPOINT=https://172.17.4.101:443
 #
 #export HYPERKUBE_IMAGE_REPO=docker://gcr.io/google_containers/hyperkube-amd64
 export HYPERKUBE_IMAGE_REPO=gcr.io/google_containers/hyperkube-amd64
-export K8S_VER=v1.9.11
+#export K8S_VER=v1.9.11
+export K8S_VER=v1.10.13
 
 # The CIDR network to use for pod IPs.
 # Each pod launched in the cluster will be assigned an IP out of this range.

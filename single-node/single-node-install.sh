@@ -1121,7 +1121,7 @@ function start_addons {
     echo "Waiting for Kubernetes API..."
     until curl --silent "http://127.0.0.1:8080/version"
     do
-        sleep 5
+        sleep 300
     done
     echo
     echo "K8S: DNS addon"
@@ -1151,13 +1151,13 @@ init_config
 init_templates
 # KJC : v2 of etcd no longer in use on coreOs. Amednded to reflect the new containerized version
 # systemctl enable etcd2; systemctl start etcd2
-systemctl enable /usr/lib64/systemd/system/etcd-member.service; systemctl start etcd-member
+# systemctl enable /usr/lib64/systemd/system/etcd-member.service; systemctl start etcd-member
 
 chmod +x /opt/bin/host-rkt
 
-init_flannel
+#init_flannel
 
-systemctl stop update-engine; systemctl mask update-engine
+#systemctl stop update-engine; systemctl mask update-engine
 
 systemctl daemon-reload
 
@@ -1166,7 +1166,7 @@ if [ $CONTAINER_RUNTIME = "rkt" ]; then
         systemctl enable rkt-api
 fi
 
-systemctl enable flanneld; systemctl start flanneld
+#systemctl enable flanneld; systemctl start flanneld
 systemctl enable kubelet; systemctl start kubelet
 
 if [ $USE_CALICO = "true" ]; then

@@ -1,3 +1,4 @@
+.IgnitionVirtualDisks
 .vagrant
 *.log
 *.merged

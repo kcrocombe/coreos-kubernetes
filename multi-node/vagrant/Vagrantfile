@@ -34,12 +34,15 @@ $worker_count = 1
 $worker_vm_memory = 1024
 $etcd_count = 1
 $etcd_vm_memory = 512
+$baseIp="172.17.4"
 
 
 #These are the CT scriprs and Ignition Files that will be injected into our provisioned server
 #
 HOME = File.dirname(__FILE__)
 IGNITION_DRIVE_ROOT = File.join(HOME,".IgnitionVirtualDisks")
+
+SSL_DIR=File.join(HOME,"ssl")
 
 if ! File.exist?(IGNITION_DRIVE_ROOT)
 	FileUtils.mkdir_p IGNITION_DRIVE_ROOT
@@ -71,18 +74,18 @@ CONTROLLER_CLUSTER_IP="10.3.0.1"
 
 #Returns an Ip address based on num
 def etcdIP(num)
-  return "172.17.4.#{num+50}"
-  #return "192.168.0.#{num+50}"
+  #return "172.17.4.#{num+50}"
+  return "%s.#{num+50}" % $baseIp
 end
 
 def controllerIP(num)
-  return "172.17.4.#{num+100}"
-  #return "192.168.0.#{num+100}"
+  #return "172.17.4.#{num+100}"
+  return "%s.#{num+100}" % $baseIp
 end
 
 def workerIP(num)
-  return "172.17.4.#{num+200}"
-  #return "192.168.0.#{num+205}"
+  #return "172.17.4.#{num+200}"
+  return "%s.#{num+200}" % $baseIp
 end
 
 controllerIPs = [*1..$controller_count].map{ |i| controllerIP(i) } <<  CONTROLLER_CLUSTER_IP
@@ -92,21 +95,22 @@ controllerIPs = [*1..$controller_count].map{ |i| controllerIP(i) } <<  CONTROLLE
 # to all worker and contoller nodes.
 #
 etcdIPs = [*1..$etcd_count].map{ |i| etcdIP(i) }
+puts etcdIPs
 initial_etcd_cluster = etcdIPs.map.with_index{ |ip, i| "e#{i+1}=http://#{ip}:2380" }.join(",")
 etcd_endpoints = etcdIPs.map.with_index{ |ip, i| "http://#{ip}:2379" }.join(",")
 
 
 
 # Generate root CA
-system("mkdir -p ssl && ./../../lib/init-ssl-ca ssl") or abort ("failed generating SSL artifacts")
+system("mkdir -p #{SSL_DIR} && ./../../lib/init-ssl-ca #{SSL_DIR}") or abort ("failed generating SSL artifacts")
 
 # Generate admin key/cert
-system("./../../lib/init-ssl ssl admin kube-admin") or abort("failed generating admin SSL artifacts")
+system("./../../lib/init-ssl #{SSL_DIR} admin kube-admin") or abort("failed generating admin SSL artifacts")
 
 def provisionMachineSSL(machine,certBaseName,cn,ipAddrs)
   tarFile = "ssl/#{cn}.tar"
   ipString = ipAddrs.map.with_index { |ip, i| "IP.#{i+1}=#{ip}"}.join(",")
-  system("./../../lib/init-ssl ssl #{certBaseName} #{cn} #{ipString}") or abort("failed generating #{cn} SSL artifacts")
+  system("./../../lib/init-ssl #{SSL_DIR} #{certBaseName} #{cn} #{ipString}") or abort("failed generating #{cn} SSL artifacts")
 end
 
 
